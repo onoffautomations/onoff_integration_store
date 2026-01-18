@@ -1,0 +1,7 @@
+{
+  "name": "OnOff Integration Store",
+  "zip_release": true,
+  "filename": "onoff_integration_store.zip",
+  "homeassistant": "2023.8.0",
+  "render_readme": true
+}
