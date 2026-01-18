@@ -1,0 +1,21 @@
+# OnOff Integration Store - Pre-configured Packages List
+
+packages:
+   - name: "OnOff Licenser"
+     repo: "OnOff-Licenser"
+     owner: "OnOffPublic"
+     type: "integration"
+     mode: "zipball"
+     description: "Example package"
+   - name: "Zing Music"
+     repo: "Zing-Music"
+     owner: "Zing"
+     type: "integration"
+     mode: "zipball"
+     description: "Needs a License"
+   - name: "Zing Card"
+     repo: "Zing-Card"
+     owner: "Zing"
+     type: "lovelace"
+     mode: "zipball"
+     description: "Need to reload the browser after installing"
