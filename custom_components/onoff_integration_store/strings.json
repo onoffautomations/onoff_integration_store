@@ -1,0 +1,63 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "OnOff Integration Store",
+        "description": "Configure connection to your Gitea instance",
+        "data": {
+          "base_url": "Gitea Base URL",
+          "token": "Access Token (Optional for public repos)",
+          "owner": "Default Owner/Organization (Optional)"
+        }
+      },
+      "store_selection": {
+        "title": "Install from Store",
+        "description": "Select packages to install from the store",
+        "data": {
+          "packages": "Packages"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Gitea",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error occurred",
+      "install_failed": "Failed to install one or more packages",
+      "no_selection": "Please select at least one package"
+    },
+    "abort": {
+      "already_configured": "This Gitea instance is already configured",
+      "install_complete": "Setup complete! Packages installed successfully.",
+      "setup_complete": "Setup complete!",
+      "no_packages": "Store list is empty",
+      "no_valid_packages": "No valid packages in store"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Install from Store",
+        "description": "Select packages to install",
+        "data": {
+          "packages": "Packages"
+        }
+      }
+    },
+    "error": {
+      "install_failed": "Failed to install one or more packages"
+    },
+    "abort": {
+      "no_packages_in_store": "No packages available in store list"
+    }
+  },
+  "issues": {
+    "integration_restart_required": {
+      "title": "Restart required",
+      "description": "The integration **{integration_name}** has been installed or updated. Home Assistant must be restarted for the changes to take effect.\n\nGo to Settings → System → Restart to restart Home Assistant."
+    },
+    "setup_restart_required": {
+      "title": "Restart required",
+      "description": "One or more integrations have been installed during setup. Home Assistant must be restarted for the changes to take effect.\n\nGo to Settings → System → Restart to restart Home Assistant."
+    }
+  }
+}

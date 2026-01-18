@@ -1,0 +1,10 @@
+{
+  "domain": "onoff_gitea_store",
+  "name": "OnOff Integration Store",
+  "version": "0.3.0",
+  "documentation": "https://github.com/onoff-dev/integration-store",
+  "config_flow": true,
+  "requirements": [],
+  "codeowners": [],
+  "iot_class": "local_polling"
+}
