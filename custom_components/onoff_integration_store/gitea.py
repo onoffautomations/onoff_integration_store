@@ -13,11 +13,12 @@ class GiteaClient:
         self.hass = hass
         self.base_url = base_url.rstrip("/")
         self.token = token or None
+        self._token_valid = True # Assume valid until proven otherwise
 
-    def _headers(self) -> dict:
+    def _headers(self, use_auth: bool = True) -> dict:
         """Get headers - with or without auth token."""
         headers = {"Accept": "application/json"}
-        if self.token:
+        if use_auth and self.token and self._token_valid:
             headers["Authorization"] = f"token {self.token}"
         return headers
 
@@ -31,9 +32,13 @@ class GiteaClient:
             sess = async_get_clientsession(self.hass)
             url = f"{self.base_url}/api/v1/user"
             async with sess.get(url, headers=self._headers(), timeout=20) as resp:
-                return resp.status == 200
+                self._token_valid = (resp.status == 200)
+                if not self._token_valid:
+                    _LOGGER.warning("Gitea authentication failed - token may be expired or revoked")
+                return self._token_valid
         except Exception as e:
             _LOGGER.debug("Auth test failed: %s", e)
+            self._token_valid = False
             return False
 
     async def get_repo(self, owner: str, repo: str) -> dict:
@@ -43,6 +48,55 @@ class GiteaClient:
             if resp.status != 200:
                 raise RuntimeError(f"Repo fetch failed: {resp.status} {await resp.text()}")
             return await resp.json()
+
+    async def get_org_repos(self, org: str) -> list[dict]:
+        """Fetch all repositories for an organization."""
+        sess = async_get_clientsession(self.hass)
+        url = f"{self.base_url}/api/v1/orgs/{org}/repos"
+        async with sess.get(url, headers=self._headers(), timeout=30) as resp:
+            if resp.status != 200:
+                _LOGGER.error("Failed to fetch repos for org %s: %s", org, resp.status)
+                return []
+            return await resp.json()
+
+    async def get_user_repos(self, user: str) -> list[dict]:
+        """Fetch all repositories for a user."""
+        sess = async_get_clientsession(self.hass)
+        url = f"{self.base_url}/api/v1/users/{user}/repos"
+        async with sess.get(url, headers=self._headers(), timeout=30) as resp:
+            if resp.status != 200:
+                _LOGGER.error("Failed to fetch repos for user %s: %s", user, resp.status)
+                return []
+            return await resp.json()
+
+    async def get_user_orgs(self) -> list[dict]:
+        """Fetch all organizations the authenticated user belongs to."""
+        if not self.token:
+            return []
+        sess = async_get_clientsession(self.hass)
+        url = f"{self.base_url}/api/v1/user/orgs"
+        async with sess.get(url, headers=self._headers(), timeout=30) as resp:
+            if resp.status != 200:
+                _LOGGER.debug("Failed to fetch user orgs: %s", resp.status)
+                return []
+            return await resp.json()
+
+    async def get_readme(self, owner: str, repo: str) -> str | None:
+        """Fetch the README content for a repository."""
+        sess = async_get_clientsession(self.hass)
+        # Try README.md, then readme.md, then README
+        for name in ["README.md", "readme.md", "README"]:
+            url = f"{self.base_url}/api/v1/repos/{owner}/{repo}/contents/{name}"
+            try:
+                async with sess.get(url, headers=self._headers(), timeout=20) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        import base64
+                        content = base64.b64decode(data["content"]).decode("utf-8")
+                        return content
+            except Exception:
+                continue
+        return None
 
     async def get_latest_release(self, owner: str, repo: str) -> dict:
         sess = async_get_clientsession(self.hass)

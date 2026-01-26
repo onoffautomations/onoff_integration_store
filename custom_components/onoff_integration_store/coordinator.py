@@ -33,8 +33,13 @@ class OnOffGiteaStoreCoordinator(DataUpdateCoordinator):
         self.client = client
         self.packages: dict[str, dict[str, Any]] = {}
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY_PACKAGES)
+        self._custom_store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.custom_repos")
+        self._hidden_store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.hidden_repos")
         self._add_entities_callback = None  # Will be set by sensor platform
         self._add_button_entities_callback = None  # Will be set by button platform
+        self._created_entities: set[str] = set()
+        self.custom_repos: list[dict[str, str]] = []
+        self.hidden_repos: list[dict[str, str]] = []
         # Don't override _listeners - parent class handles it
 
     async def async_load_packages(self) -> None:
@@ -48,6 +53,16 @@ class OnOffGiteaStoreCoordinator(DataUpdateCoordinator):
         else:
             self.packages = {}
             _LOGGER.info("No tracked packages found")
+
+        # Load custom hidden repos
+        custom_data = await self._custom_store.async_load()
+        self.custom_repos = custom_data.get("repos", []) if custom_data else []
+        _LOGGER.info("Loaded %d custom repositories", len(self.custom_repos))
+
+        # Load manually hidden repos
+        hidden_data = await self._hidden_store.async_load()
+        self.hidden_repos = hidden_data.get("repos", []) if hidden_data else []
+        _LOGGER.info("Loaded %d hidden repositories", len(self.hidden_repos))
 
     async def async_save_packages(self) -> None:
         """Save tracked packages to storage."""
@@ -97,7 +112,7 @@ class OnOffGiteaStoreCoordinator(DataUpdateCoordinator):
         _LOGGER.info("✓ Package %s tracked", package_id)
 
         # If this is a new package and we have the callback, create sensors immediately
-        if is_new_package and self._add_entities_callback:
+        if is_new_package and self._add_entities_callback and package_id not in self._created_entities:
             _LOGGER.info("Creating sensors for new package: %s", package_id)
             await self._create_sensors_for_package(package_id, package_data)
         else:
@@ -132,14 +147,14 @@ class OnOffGiteaStoreCoordinator(DataUpdateCoordinator):
                 )
 
                 new_sensors = [
-                    PackageVersionSensor(self, package_id, package_data),
-                    PackageUpdateSensor(self, package_id, package_data),
-                    PackageTypeSensor(self, package_id, package_data),
+                    PackageVersionSensor(self, package_id, package_data, self.entry_id),
+                    PackageUpdateSensor(self, package_id, package_data, self.entry_id),
+                    PackageTypeSensor(self, package_id, package_data, self.entry_id),
                 ]
 
                 # Add restart sensor only for integrations
                 if package_data.get('package_type') == 'integration':
-                    new_sensors.append(WaitingRestartSensor(self, package_id, package_data, self.hass))
+                    new_sensors.append(WaitingRestartSensor(self, package_id, package_data, self.hass, self.entry_id))
 
                 self._add_entities_callback(new_sensors)
                 _LOGGER.info("✓ Created %d sensors for %s", len(new_sensors), package_data["repo_name"])
@@ -153,7 +168,7 @@ class OnOffGiteaStoreCoordinator(DataUpdateCoordinator):
         if self._add_button_entities_callback:
             try:
                 # Import here to avoid circular import
-                from .button import PackageUpdateButton
+                from .button import PackageUpdateButton, PackageCheckUpdateButton
 
                 # Get entry_id from hass data
                 entry_id = self.entry_id
@@ -164,9 +179,13 @@ class OnOffGiteaStoreCoordinator(DataUpdateCoordinator):
                         break
 
                 if entry:
-                    new_button = [PackageUpdateButton(self, package_id, package_data, entry)]
+                    new_button = [
+                        PackageUpdateButton(self, package_id, package_data, entry),
+                        PackageCheckUpdateButton(self, package_id, package_data, entry)
+                    ]
                     self._add_button_entities_callback(new_button)
-                    _LOGGER.info("✓ Created update button for %s", package_data["repo_name"])
+                    self._created_entities.add(package_id)
+                    _LOGGER.info("✓ Created dynamic entities for %s", package_data["repo_name"])
                 else:
                     _LOGGER.warning("Could not find config entry for button creation")
 
@@ -205,6 +224,8 @@ class OnOffGiteaStoreCoordinator(DataUpdateCoordinator):
                     package_data["latest_version"] = latest_version
                     package_data["update_available"] = update_available
                     package_data["last_check"] = datetime.now().isoformat()
+                    package_data["release_summary"] = latest_release.get("name")
+                    package_data["release_notes"] = latest_release.get("body")
 
                     if update_available:
                         _LOGGER.info("✓ Update available for %s: %s → %s",
@@ -220,7 +241,7 @@ class OnOffGiteaStoreCoordinator(DataUpdateCoordinator):
                 error_str = str(e)
                 # Check if it's a 404 (repo doesn't exist or no access)
                 if "404" in error_str or "not found" in error_str.lower():
-                    _LOGGER.warning("Package %s/%s not found (404). Check if owner/repo is correct or if you have access.", owner, repo)
+                    _LOGGER.debug("Repo %s/%s not found on Gitea server. This might be a private repo that requires a token.", owner, repo)
                 else:
                     _LOGGER.error("Error checking updates for %s: %s", package_id, e)
                 # Mark as checked even on error to avoid repeated errors
@@ -242,3 +263,40 @@ class OnOffGiteaStoreCoordinator(DataUpdateCoordinator):
         """Get package information by owner and repo name."""
         package_id = f"{owner}_{repo_name}".lower().replace("-", "_")
         return self.packages.get(package_id)
+
+    async def async_add_custom_repo(self, owner: str, repo: str) -> None:
+        """Add a custom repo to the visible list."""
+        if not any(r["owner"] == owner and r["repo"] == repo for r in self.custom_repos):
+            self.custom_repos.append({"owner": owner, "repo": repo})
+            await self._custom_store.async_save({"repos": self.custom_repos})
+            _LOGGER.info("Added custom repo: %s/%s", owner, repo)
+
+    def is_custom_repo(self, owner: str, repo: str) -> bool:
+        """Check if a repo is in the custom list."""
+        return any(r["owner"].lower() == owner.lower() and r["repo"].lower() == repo.lower() for r in self.custom_repos)
+
+    async def async_hide_repo(self, owner: str, repo: str) -> None:
+        """Hide a repository from view."""
+        if not any(r["owner"] == owner and r["repo"] == repo for r in self.hidden_repos):
+            self.hidden_repos.append({"owner": owner, "repo": repo})
+            await self._hidden_store.async_save({"repos": self.hidden_repos})
+            _LOGGER.info("Hid repo: %s/%s", owner, repo)
+
+    async def async_unhide_repo(self, owner: str, repo: str) -> None:
+        """Unhide a repository."""
+        self.hidden_repos = [r for r in self.hidden_repos if not (r["owner"] == owner and r["repo"] == repo)]
+        await self._hidden_store.async_save({"repos": self.hidden_repos})
+        _LOGGER.info("Unhid repo: %s/%s", owner, repo)
+
+    def is_hidden_repo(self, owner: str, repo: str) -> bool:
+        """Check if a repo is manually hidden."""
+        return any(r["owner"].lower() == owner.lower() and r["repo"].lower() == repo.lower() for r in self.hidden_repos)
+
+    async def async_remove_package(self, owner: str, repo_name: str) -> None:
+        """Remove a tracked package from storage."""
+        package_id = f"{owner}_{repo_name}".lower().replace("-", "_")
+        if package_id in self.packages:
+            _LOGGER.info("Removing tracking for package: %s", package_id)
+            self.packages.pop(package_id)
+            await self.async_save_packages()
+            self.async_update_listeners()

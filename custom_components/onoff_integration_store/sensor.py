@@ -26,6 +26,8 @@ from .const import (
     ATTR_UPDATE_AVAILABLE,
     ATTR_INSTALL_DATE,
     ATTR_LAST_CHECK,
+    ATTR_RELEASE_SUMMARY,
+    ATTR_RELEASE_NOTES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,14 +57,15 @@ async def async_setup_entry(
             _LOGGER.info("Creating sensors for package: %s (type: %s)", package_id, package_type)
 
             sensors.extend([
-                PackageVersionSensor(coordinator, package_id, package_data),
-                PackageUpdateSensor(coordinator, package_id, package_data),
-                PackageTypeSensor(coordinator, package_id, package_data),
+                PackageVersionSensor(coordinator, package_id, package_data, entry.entry_id),
+                PackageUpdateSensor(coordinator, package_id, package_data, entry.entry_id),
+                PackageTypeSensor(coordinator, package_id, package_data, entry.entry_id),
             ])
+            coordinator._created_entities.add(package_id)
 
             # Add restart sensor only for integrations
             if package_type == 'integration':
-                sensors.append(WaitingRestartSensor(coordinator, package_id, package_data, hass))
+                sensors.append(WaitingRestartSensor(coordinator, package_id, package_data, hass, entry.entry_id))
                 _LOGGER.info("✓ Added WaitingRestartSensor for integration: %s", package_id)
             else:
                 _LOGGER.debug("Skipped WaitingRestartSensor for non-integration package: %s", package_id)
@@ -89,12 +92,13 @@ class PackageVersionSensor(SensorEntity):
 
     _attr_should_poll = False
 
-    def __init__(self, coordinator, package_id: str, package_data: dict) -> None:
+    def __init__(self, coordinator, package_id: str, package_data: dict, entry_id: str) -> None:
         """Initialize the sensor."""
         self._coordinator = coordinator
         self._package_id = package_id
+        self._entry_id = entry_id
         self._attr_name = f"{package_data['repo_name']} Version"
-        self._attr_unique_id = f"{DOMAIN}_{package_id}_version"
+        self._attr_unique_id = f"{DOMAIN}_{entry_id}_{package_id}_version"
         self._attr_icon = "mdi:package-variant"
 
     @property
@@ -147,12 +151,13 @@ class PackageUpdateSensor(SensorEntity):
 
     _attr_should_poll = False
 
-    def __init__(self, coordinator, package_id: str, package_data: dict) -> None:
+    def __init__(self, coordinator, package_id: str, package_data: dict, entry_id: str) -> None:
         """Initialize the sensor."""
         self._coordinator = coordinator
         self._package_id = package_id
+        self._entry_id = entry_id
         self._attr_name = f"{package_data['repo_name']} Update Available"
-        self._attr_unique_id = f"{DOMAIN}_{package_id}_update"
+        self._attr_unique_id = f"{DOMAIN}_{entry_id}_{package_id}_update"
         self._attr_icon = "mdi:update"
 
     @property
@@ -207,6 +212,8 @@ class PackageUpdateSensor(SensorEntity):
             ATTR_LATEST_VERSION: package_data.get('latest_version', 'unknown'),
             ATTR_LAST_CHECK: package_data.get('last_check'),
             ATTR_UPDATE_AVAILABLE: package_data.get('update_available', False),
+            ATTR_RELEASE_SUMMARY: package_data.get('release_summary'),
+            ATTR_RELEASE_NOTES: package_data.get('release_notes'),
         }
 
 
@@ -216,12 +223,13 @@ class PackageTypeSensor(SensorEntity):
     _attr_should_poll = False
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator, package_id: str, package_data: dict) -> None:
+    def __init__(self, coordinator, package_id: str, package_data: dict, entry_id: str) -> None:
         """Initialize the sensor."""
         self._coordinator = coordinator
         self._package_id = package_id
+        self._entry_id = entry_id
         self._attr_name = f"{package_data['repo_name']} Type"
-        self._attr_unique_id = f"{DOMAIN}_{package_id}_type"
+        self._attr_unique_id = f"{DOMAIN}_{entry_id}_{package_id}_type"
         self._attr_icon = "mdi:package-variant-closed"
 
     @property
@@ -276,13 +284,14 @@ class WaitingRestartSensor(SensorEntity):
     _attr_should_poll = False
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator, package_id: str, package_data: dict, hass: HomeAssistant) -> None:
+    def __init__(self, coordinator, package_id: str, package_data: dict, hass: HomeAssistant, entry_id: str) -> None:
         """Initialize the sensor."""
         self._coordinator = coordinator
         self._package_id = package_id
         self._hass = hass
+        self._entry_id = entry_id
         self._attr_name = f"{package_data['repo_name']} Waiting Restart"
-        self._attr_unique_id = f"{DOMAIN}_{package_id}_waiting_restart"
+        self._attr_unique_id = f"{DOMAIN}_{entry_id}_{package_id}_waiting_restart"
         self._attr_icon = "mdi:restart"
 
     @property

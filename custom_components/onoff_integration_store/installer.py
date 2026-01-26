@@ -204,3 +204,26 @@ async def download_and_install(
 ) -> dict:
     zip_bytes = await _download_zip_bytes(hass, url, headers=headers)
     return await install_package(hass, zip_bytes=zip_bytes, package_type=package_type, repo_name=repo_name)
+
+
+def uninstall_package(hass: HomeAssistant, package_type: str, repo_name: str) -> None:
+    """Best effort uninstall of a package by deleting its folder."""
+    import logging
+    _LOGGER = logging.getLogger(__name__)
+    
+    if package_type == "lovelace":
+        dest = Path(hass.config.path("www", "community", LOVELACE_VENDOR_FOLDER, repo_name))
+        if dest.exists():
+            _LOGGER.info("Uninstalling Lovelace card: %s", dest)
+            shutil.rmtree(dest)
+            
+    elif package_type == "integration":
+        # Best effort: domain name is often repo name or underscore version
+        domains = [repo_name.lower(), repo_name.lower().replace("-", "_")]
+        cc_root = Path(hass.config.path("custom_components"))
+        for dom in domains:
+            dest = cc_root / dom
+            if dest.exists():
+                _LOGGER.info("Uninstalling integration: %s", dest)
+                shutil.rmtree(dest)
+                break

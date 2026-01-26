@@ -32,3 +32,7 @@ ATTR_LATEST_VERSION = "latest_version"
 ATTR_UPDATE_AVAILABLE = "update_available"
 ATTR_INSTALL_DATE = "install_date"
 ATTR_LAST_CHECK = "last_check"
+ATTR_RELEASE_SUMMARY = "release_summary"
+ATTR_RELEASE_NOTES = "release_notes"
+
+CONF_SIDE_PANEL = "side_panel"

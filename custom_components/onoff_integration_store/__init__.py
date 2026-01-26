@@ -26,7 +26,8 @@ from .const import (
     TYPE_BLUEPRINTS,
 )
 from .gitea import GiteaClient
-from .installer import download_and_install
+from .installer import download_and_install, uninstall_package
+from .dashboard import async_setup_dashboard
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -308,18 +309,14 @@ async def _register_or_update_lovelace_resource(hass: HomeAssistant, base_url: s
             )
             _LOGGER.info("✓ Called lovelace.reload_resources service")
             reload_success = True
-        else:
-            _LOGGER.warning("⚠ lovelace.reload_resources service NOT AVAILABLE")
-            _LOGGER.warning("  Available lovelace services: %s",
-                          list(hass.services.async_services().get("lovelace", {}).keys()))
-    except Exception as e:
-        _LOGGER.warning("⚠ Failed to call reload_resources: %s", e)
+    except Exception:
+        pass
 
     # Method 3: Direct collection reload
     try:
         from homeassistant.components import lovelace
         if hasattr(hass.data.get("lovelace"), "resources"):
-            await hass.data["lovelace"]["resources"].async_load()
+            await hass.data["lovelace"].resources.async_load()
             _LOGGER.info("✓ Directly reloaded lovelace resources collection")
             reload_success = True
     except Exception as e:
@@ -435,11 +432,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
     }
 
-    # Load sensor and button platforms
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "button"])
+    # Setup Dashboard (Store UI) - catch errors so setup doesn't fail entirely
+    try:
+        await async_setup_dashboard(hass, entry)
+    except Exception as e:
+        _LOGGER.error("Failed to setup OnOff Store Dashboard: %s", e, exc_info=True)
 
     # Check for updates on startup
     await coordinator.async_check_updates()
+
+    # Load sensor and button platforms - move to end to avoid platform-already-setup errors on retry
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "button"])
 
     # Handle pending installations from initial setup
     pending_installs = entry.data.get("pending_installs", [])
@@ -587,22 +590,60 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return resolved
 
     async def _download_url_for_call(owner: str, repo: str, mode: str, tag: str | None, asset_name: str | None) -> tuple[str, str]:
-        if mode == MODE_ASSET:
+        # Intelligent "Zipball First" logic with silent Asset recovery
+        
+        # 1. Always try Zipball first as requested
+        try:
+            ref = await _resolve_ref_for_zipball(owner, repo, tag)
+            return client.archive_zip_url(owner, repo, ref), ref
+        except Exception as e:
+            _LOGGER.debug("Zipball method failed for %s/%s, trying Release Asset: %s", owner, repo, e)
+
+        # 2. Try Asset mode as fallback
+        try:
             resolved_tag = await _resolve_tag_for_asset(owner, repo, tag)
             release = await client.get_release_by_tag(owner, repo, resolved_tag)
             asset = client.pick_asset(release, asset_name=asset_name)
             return asset["browser_download_url"], resolved_tag
-
-        ref = await _resolve_ref_for_zipball(owner, repo, tag)
-        return client.archive_zip_url(owner, repo, ref), ref
+        except Exception as final_err:
+            _LOGGER.error("Both installation modes (Zipball & Asset) failed for %s/%s.", owner, repo)
+            raise final_err
 
     async def _do_install(call: ServiceCall, package_type: str, default_mode: str) -> None:
         try:
             owner = await _resolve_owner(call)
             repo = call.data["repo"].strip()
-            mode = call.data.get("mode", default_mode)
-            tag = call.data.get("tag")
+            
+            # Check coordinator for existing package data to ensure update consistency
+            coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+            existing_pkg = coordinator.get_package_by_repo(owner, repo)
+            
+            
+            # DEEP FIX: If not tracked, also check store_list.yaml for pre-configured mode
+            yaml_pkg = None
+            if not existing_pkg:
+                from .config_flow import load_store_list
+                yaml_items = await hass.async_add_executor_job(load_store_list, hass)
+                yaml_pkg = next((y for y in yaml_items if y.get("owner") == owner and y.get("repo") == repo), None)
+
+            # Priority: 1. Service Call Args, 2. Existing Package Data, 3. YAML config, 4. Defaults
+            mode = call.data.get("mode")
+            if not mode:
+                if existing_pkg:
+                    mode = existing_pkg.get("mode")
+                elif yaml_pkg:
+                    mode = yaml_pkg.get("mode")
+            if not mode:
+                mode = default_mode
+                
             asset_name = call.data.get("asset_name")
+            if not asset_name:
+                if existing_pkg:
+                    asset_name = existing_pkg.get("asset_name")
+                elif yaml_pkg:
+                    asset_name = yaml_pkg.get("asset_name")
+            
+            tag = call.data.get("tag")
 
             url, version = await _download_url_for_call(owner, repo, mode, tag, asset_name)
             _LOGGER.info("")
@@ -632,20 +673,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.info("Creating repair issue for integration restart requirement")
                 try:
                     from homeassistant.helpers import issue_registry as ir
-                    issue_registry = ir.async_get(hass)
-                    issue_registry.async_create_issue(
+                    # Use the most compatible way to create a repair issue
+                    ir.async_create_issue(
+                        hass,
                         domain=DOMAIN,
-                        issue_id=f"integration_restart_{repo}",
+                        issue_id=f"onoff_restart_{repo}_{_get_datetime_timestamp()}",
                         is_fixable=False,
                         severity=ir.IssueSeverity.WARNING,
                         translation_key="integration_restart_required",
-                        translation_placeholders={
-                            "integration_name": repo,
-                        },
+                        translation_placeholders={"integration_name": repo},
                     )
                     _LOGGER.info("✓ Created repair issue for restart")
                 except Exception as e:
-                    _LOGGER.warning("Could not create repair issue: %s", e)
+                    _LOGGER.debug("Could not create repair issue (non-critical): %s", e)
 
             if package_type == TYPE_LOVELACE:
                 base_resource_url = result.get("dest_url")
@@ -714,22 +754,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def _handle_install_generic(call: ServiceCall) -> None:
         package_type = call.data["type"]
-        if package_type == TYPE_INTEGRATION:
-            default_mode = MODE_ZIPBALL
-        elif package_type == TYPE_LOVELACE:
-            default_mode = MODE_ASSET
-        else:
-            default_mode = MODE_ZIPBALL
+        # Default to zipball for everything as requested
+        default_mode = MODE_ZIPBALL
         await _do_install(call, package_type, default_mode=default_mode)
-
-    async def _handle_install_integration(call: ServiceCall) -> None:
-        await _do_install(call, TYPE_INTEGRATION, default_mode=MODE_ZIPBALL)
-
-    async def _handle_install_lovelace(call: ServiceCall) -> None:
-        await _do_install(call, TYPE_LOVELACE, default_mode=MODE_ASSET)
-
-    async def _handle_install_blueprints(call: ServiceCall) -> None:
-        await _do_install(call, TYPE_BLUEPRINTS, default_mode=MODE_ZIPBALL)
 
     async def _handle_check_updates(call: ServiceCall) -> None:
         """Handle check_updates service call."""
@@ -737,9 +764,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_check_updates()
 
     hass.services.async_register(DOMAIN, SERVICE_INSTALL, _handle_install_generic, schema=SERVICE_SCHEMA_GENERIC)
-    hass.services.async_register(DOMAIN, SERVICE_INSTALL_INTEGRATION, _handle_install_integration, schema=SERVICE_SCHEMA_SIMPLE)
-    hass.services.async_register(DOMAIN, SERVICE_INSTALL_LOVELACE, _handle_install_lovelace, schema=SERVICE_SCHEMA_SIMPLE)
-    hass.services.async_register(DOMAIN, SERVICE_INSTALL_BLUEPRINTS, _handle_install_blueprints, schema=SERVICE_SCHEMA_SIMPLE)
     hass.services.async_register(DOMAIN, SERVICE_CHECK_UPDATES, _handle_check_updates)
 
     return True

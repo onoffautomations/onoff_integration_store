@@ -5,9 +5,9 @@
         "title": "OnOff Integration Store",
         "description": "Configure connection to your Gitea instance",
         "data": {
-          "base_url": "Gitea Base URL",
           "token": "Access Token (Optional for public repos)",
-          "owner": "Default Owner/Organization (Optional)"
+          "owner": "Default Owner/Organization (Optional)",
+          "side_panel": "Show Store in Sidebar (Admins Only)"
         }
       },
       "store_selection": {
@@ -15,6 +15,15 @@
         "description": "Select packages to install from the store",
         "data": {
           "packages": "Packages"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure OnOff Store",
+        "description": "Update your token or default owner",
+        "data": {
+          "token": "Access Token (Optional)",
+          "owner": "Default Owner/Organization (Optional)",
+          "side_panel": "Show Store in Sidebar (Admins Only)"
         }
       }
     },
@@ -26,20 +35,25 @@
       "no_selection": "Please select at least one package"
     },
     "abort": {
-      "already_configured": "This Gitea instance is already configured",
+      "already_configured": "OnOff Integration Store is already configured",
       "install_complete": "Setup complete! Packages installed successfully.",
       "setup_complete": "Setup complete!",
       "no_packages": "Store list is empty",
-      "no_valid_packages": "No valid packages in store"
+      "no_valid_packages": "No valid packages in store",
+      "reconfigure_successful": "Reconfiguration successful",
+      "cannot_reconfigure": "Reconfiguration is not possible at this time",
+      "unknown": "An unexpected error occurred. Check logs for details."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Install from Store",
-        "description": "Select packages to install",
+        "title": "Manage OnOff Store",
+        "description": "Manage settings. To install or uninstall integrations/cards, please use the OnOff Store in the sidebar.",
         "data": {
-          "packages": "Packages"
+          "token": "Access Token (Optional)",
+          "owner": "Default Owner/Organization (Optional)",
+          "side_panel": "Show Store in Sidebar (Admins Only)"
         }
       }
     },
