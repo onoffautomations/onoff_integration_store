@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OnOff Integration Store</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.2.96/css/materialdesignicons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --primary: #00d2ff;
+            --secondary: #3a7bd5;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --dim: #94a3b8;
+            --glow: rgba(0, 210, 255, 0.2);
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+            --grad: linear-gradient(135deg, #00d2ff, #3a7bd5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            padding: 1rem;
+            min-height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--grad);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+            flex-grow: 1;
+            justify-content: flex-end;
+        }
+
+        .search-box {
+            position: relative;
+            width: 100%;
+            max-width: 220px;
+            min-width: 150px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.5rem 0.8rem 0.5rem 2.2rem;
+            border-radius: 50px;
+            background: var(--card);
+            border: 1px solid #334155;
+            color: #fff;
+            outline: none;
+            transition: 0.3s;
+            font-size: 0.85rem;
+        }
+
+        .search-box input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--glow);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 0.8rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--dim);
+            font-size: 0.9rem;
+        }
+
+        select {
+            padding: 0.5rem 0.8rem;
+            border-radius: 50px;
+            background: var(--card);
+            border: 1px solid #334155;
+            color: #fff;
+            cursor: pointer;
+            outline: none;
+            font-size: 0.8rem;
+            max-width: 130px;
+        }
+
+        .bulk-bar {
+            background: var(--primary);
+            color: #000;
+            padding: 0.6rem 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 700;
+            font-size: 0.85rem;
+            animation: slideDown 0.3s;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .menu-container {
+            position: relative;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.3rem;
+            cursor: pointer;
+            padding: 0.4rem;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .btn-icon:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--card);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            min-width: 200px;
+            display: none;
+            z-index: 100;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .dropdown div {
+            padding: 0.7rem 1rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .dropdown div:hover {
+            background: #334155;
+            color: var(--primary);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 1.2rem;
+            border: 1px solid #334155;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .card.selected {
+            border-color: var(--primary);
+            background: rgba(0, 210, 255, 0.05);
+        }
+
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--grad);
+            opacity: 0;
+            transition: 0.3s;
+        }
+
+        .card:hover::after {
+            opacity: 1;
+        }
+
+        .card-head {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.8rem;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+        }
+
+        .card-check {
+            position: absolute;
+            top: 0.8rem;
+            right: 0.8rem;
+            font-size: 1.3rem;
+            color: var(--primary);
+            display: none;
+        }
+
+        .card.selected .card-check {
+            display: block;
+        }
+
+        .type-tag {
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+
+        .tag-int {
+            background: rgba(0, 210, 255, 0.1);
+            color: #00d2ff;
+        }
+
+        .tag-card {
+            background: rgba(168, 85, 247, 0.1);
+            color: #a855f7;
+        }
+
+        .tag-blue {
+            background: rgba(236, 72, 153, 0.1);
+            color: #ec4899;
+        }
+
+        .badge {
+            font-size: 0.6rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 50px;
+            font-weight: 700;
+            border: 1px solid transparent;
+        }
+
+        .badge-update {
+            background: rgba(234, 179, 8, 0.1);
+            color: var(--warning);
+            border-color: rgba(234, 179, 8, 0.2);
+        }
+
+        .badge-inst {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+            border-color: rgba(34, 197, 94, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .card-title span {
+            word-break: break-word;
+        }
+
+        .card-desc {
+            color: var(--dim);
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+            flex-grow: 1;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .card-foot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 0.8rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: none;
+            color: var(--dim);
+            padding: 0.6rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .action-btn.hide-btn:hover {
+            color: var(--danger);
+        }
+
+        .btn {
+            padding: 0.7rem 1.2rem;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: 0.3s;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+
+        .btn-p {
+            background: var(--grad);
+            color: #fff;
+        }
+
+        .btn-p:hover {
+            transform: scale(1.03);
+            box-shadow: 0 5px 15px var(--glow);
+        }
+
+        .btn-p:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-o {
+            background: transparent;
+            border: 1px solid #334155;
+            color: #fff;
+        }
+
+        .btn-o:hover {
+            background: #334155;
+        }
+
+        .btn-dark {
+            background: #000;
+            color: #fff;
+        }
+
+        .btn-refresh {
+            padding: 0.5rem 0.8rem;
+            font-size: 0.75rem;
+        }
+
+        #modal,
+        #customModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 15, 30, 0.95);
+            backdrop-filter: blur(15px);
+            display: none;
+            z-index: 1000;
+            padding: 0.5rem;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-c {
+            background: var(--card);
+            width: 100%;
+            max-width: 900px;
+            height: 95vh;
+            max-height: 95vh;
+            border-radius: 20px;
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: zoom 0.3s;
+        }
+
+        #customModal .modal-c {
+            height: auto;
+            max-width: 400px;
+            max-height: 90vh;
+        }
+
+        .modal-h {
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .modal-h h2 {
+            font-size: 1.1rem;
+            word-break: break-word;
+        }
+
+        .modal-b {
+            padding: 1.2rem;
+            overflow-y: auto;
+            flex-grow: 1;
+            line-height: 1.7;
+            color: #cbd5e1;
+            font-size: 0.9rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .modal-f {
+            padding: 1rem 1.2rem;
+            border-top: 1px solid #334155;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.8rem;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            color: var(--dim);
+            font-size: 0.85rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            border-radius: 10px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #fff;
+            outline: none;
+            font-size: 0.9rem;
+        }
+
+        .pop-o {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .pop {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 20px;
+            border: 1px solid var(--primary);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 0 40px var(--glow);
+            animation: pop 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+
+        @keyframes pop {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes zoom {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 0.4rem;
+            }
+
+            header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.8rem;
+                margin-bottom: 1rem;
+            }
+
+            .logo {
+                font-size: 1.4rem;
+                justify-content: center;
+            }
+
+            .controls {
+                justify-content: center;
+                gap: 0.5rem;
+            }
+
+            .search-box {
+                max-width: 100%;
+                order: -1;
+                width: 100%;
+            }
+
+            .search-box input {
+                padding: 0.7rem 1rem 0.7rem 2.5rem;
+                font-size: 0.95rem;
+            }
+
+            select {
+                flex: 1;
+                min-width: 0;
+                max-width: none;
+                font-size: 0.85rem;
+                padding: 0.6rem;
+            }
+
+            .btn-refresh {
+                display: none;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .card {
+                padding: 1.2rem;
+                border-radius: 14px;
+            }
+
+            .card-title {
+                font-size: 1.1rem;
+            }
+
+            .card-desc {
+                font-size: 0.9rem;
+                -webkit-line-clamp: 3;
+            }
+
+            .modal-c {
+                border-radius: 0;
+                height: 100vh;
+                max-height: 100vh;
+                width: 100vw;
+            }
+        }
+
+        /* Markdown styling */
+        .modal-b h1,
+        .modal-b h2,
+        .modal-b h3 {
+            color: #fff;
+            margin: 1rem 0 0.5rem;
+        }
+
+        .modal-b h1 {
+            font-size: 1.3rem;
+        }
+
+        .modal-b h2 {
+            font-size: 1.1rem;
+        }
+
+        .modal-b h3 {
+            font-size: 1rem;
+        }
+
+        .modal-b p {
+            margin-bottom: 0.8rem;
+        }
+
+        .modal-b code {
+            background: #0f172a;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        .modal-b pre {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 0.8rem 0;
+        }
+
+        .modal-b pre code {
+            padding: 0;
+        }
+
+        .modal-b ul,
+        .modal-b ol {
+            margin-left: 1.5rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .modal-b img {
+            max-width: 100%;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="logo" onclick="load()"><i class="mdi mdi-storefront"></i> OnOff Store</div>
+            <div class="controls">
+                <div class="search-box">
+                    <i class="mdi mdi-magnify"></i>
+                    <input type="text" id="q" placeholder="Search..." oninput="apply()">
+                </div>
+                <button class="btn btn-o btn-refresh" onclick="checkUpdates()" id="refreshBtn">
+                    <i class="mdi mdi-sync"></i> Refresh
+                </button>
+                <select id="typeF" onchange="apply()">
+                    <option value="all">All</option>
+                    <option value="integration">Integrations</option>
+                    <option value="lovelace">Cards</option>
+                    <option value="blueprints">Blueprints</option>
+                </select>
+                <select id="sort" onchange="apply()">
+                    <option value="name">Name</option>
+                    <option value="upd">Updates</option>
+                    <option value="new">Recent</option>
+                </select>
+                <div class="menu-container">
+                    <button class="btn-icon" onclick="toggleMenu()"><i class="mdi mdi-dots-vertical"></i></button>
+                    <div id="dropdown" class="dropdown">
+                        <div onclick="checkUpdates()"><i class="mdi mdi-sync"></i> Refresh Updates</div>
+                        <div id="addCustomBtn" onclick="openCustomModal()"><i class="mdi mdi-plus-circle-outline"></i>
+                            Add Custom Repo
+                        </div>
+                        <div id="toggleHiddenBtn" onclick="toggleShowHidden()"><i class="mdi mdi-eye-off-outline"></i>
+                            Show Hidden</div>
+                        <div onclick="load()"><i class="mdi mdi-refresh"></i> Full Reload</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div id="bulkBar" class="bulk-bar">
+            <span id="bulkText">0 selected</span>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center;">
+                <button class="btn btn-dark" onclick="bulkAction('install')"><i class="mdi mdi-download"></i>
+                    Install</button>
+                <button class="btn btn-o" onclick="clearSelection()"
+                    style="border-color:#000; color:#000;">Cancel</button>
+            </div>
+        </div>
+
+        <div id="grid" class="grid"></div>
+    </div>
+
+    <div id="modal">
+        <div class="modal-c">
+            <div class="modal-h">
+                <div style="flex:1; min-width:0;">
+                    <h2 id="mt"></h2>
+                    <p id="ms" style="color:var(--dim); font-size:0.8rem;"></p>
+                </div>
+                <div style="font-size:1.8rem; cursor:pointer; padding:0.5rem;" onclick="closeModal()">&times;</div>
+            </div>
+            <div class="modal-b md" id="mb"></div>
+            <div class="modal-f" id="mf"></div>
+        </div>
+    </div>
+
+    <div id="customModal">
+        <div class="modal-c">
+            <div class="modal-h">
+                <h2>Add Custom Repo</h2>
+                <div style="font-size:1.8rem; cursor:pointer; padding:0.5rem;" onclick="closeCustomModal()">&times;
+                </div>
+            </div>
+            <div class="modal-b">
+                <div class="form-group">
+                    <label>Owner / Organization</label>
+                    <input type="text" id="customOwner" placeholder="e.g. Zing">
+                </div>
+                <div class="form-group">
+                    <label>Repository Name</label>
+                    <input type="text" id="customRepo" placeholder="e.g. my-integration">
+                </div>
+            </div>
+            <div class="modal-f">
+                <button class="btn btn-o" onclick="closeCustomModal()">Cancel</button>
+                <button class="btn btn-p" onclick="addCustomRepo()">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pop-o" class="pop-o">
+        <div class="pop">
+            <div id="pi" style="font-size:3.5rem; color:var(--success); margin-bottom:1rem;"></div>
+            <h3 id="pt" style="font-size:1.4rem; margin-bottom:0.8rem;"></h3>
+            <p id="pm" style="color:var(--dim); margin-bottom:1.5rem; line-height:1.5; font-size:0.9rem;"></p>
+            <div id="pa" style="display:flex; justify-content:center; gap:0.8rem; flex-wrap:wrap;"></div>
+        </div>
+    </div>
+
+    <script>
+        let items = [];
+        let selectedIds = new Set();
+        let showHidden = false;
+        const grid = document.getElementById('grid');
+
+        function formatName(n) {
+            let s = n.startsWith('x-') ? n.substring(2) : n;
+            s = s.replace(/[_-]/g, ' ');
+            return s.split(' ').filter(w => w.length > 0).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        }
+
+        async function load() {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--dim);"><i class="mdi mdi-loading mdi-spin" style="font-size: 2.5rem; display: block; margin-bottom: 0.8rem;"></i> Loading...</div>';
+            try {
+                const r = await fetch('/api/onoff_store/repos');
+                items = await r.json();
+                apply();
+            } catch (e) { grid.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--dim);">Error loading store.</div>'; }
+        }
+
+        async function checkUpdates() {
+            try {
+                await fetch('/api/onoff_store/refresh', { method: 'POST' });
+                load();
+            } catch (e) { }
+        }
+
+        function apply() {
+            const q = document.getElementById('q').value.toLowerCase();
+            const f = document.getElementById('typeF').value;
+            const s = document.getElementById('sort').value;
+
+            let filtered = items.filter(i => {
+                if (!showHidden && i.is_hidden) return false;
+                const matchQ = i.repo_name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q);
+                const matchF = f === 'all' || i.type === f;
+                return matchQ && matchF;
+            });
+
+            filtered.sort((a, b) => {
+                if (s === 'name') return a.repo_name.localeCompare(b.repo_name);
+                if (s === 'new') return new Date(b.updated_at) - new Date(a.updated_at);
+                if (s === 'upd') {
+                    if (a.update_available && !b.update_available) return -1;
+                    if (!a.update_available && b.update_available) return 1;
+                    return a.repo_name.localeCompare(b.repo_name);
+                }
+                return 0;
+            });
+            render(filtered);
+        }
+
+        function render(data) {
+            grid.innerHTML = '';
+            if (data.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--dim);"><i class="mdi mdi-package-variant" style="font-size: 2.5rem; display: block; margin-bottom: 0.8rem;"></i> No items found</div>';
+                return;
+            }
+            data.forEach(i => {
+                const id = `${i.owner}/${i.repo_name}`;
+                const card = document.createElement('div');
+                card.className = `card ${selectedIds.has(id) ? 'selected' : ''}`;
+                const typeIcon = i.type === 'lovelace' ? 'mdi-view-dashboard' : (i.type === 'blueprints' ? 'mdi-file-document-outline' : 'mdi-puzzle');
+                const typeClass = i.type === 'lovelace' ? 'tag-card' : (i.type === 'blueprints' ? 'tag-blue' : 'tag-int');
+                const displayTitle = formatName(i.repo_name);
+
+                card.innerHTML = `
+                <i class="mdi mdi-check-circle card-check"></i>
+                <div class="card-head">
+                    <div class="type-tag ${typeClass}"><i class="mdi ${typeIcon}"></i> ${i.type}</div>
+                    <div style="display:flex; gap:0.3rem; align-items:center; flex-wrap:wrap;">
+                         ${i.is_hidden ? '<i class="mdi mdi-eye-off" title="Hidden" style="font-size:0.9rem;"></i>' : ''}
+                         ${i.is_installed ? (i.update_available ? '<span class="badge badge-update">Update</span>' : '<span class="badge badge-inst">Installed</span>') : ''}
+                    </div>
+                </div>
+                <div class="card-title">
+                    <span>${displayTitle}</span>
+                    <div class="card-actions">
+                        <button class="action-btn hide-btn" onclick="toggleHide('${i.owner}','${i.repo_name}',${i.is_hidden},event)" title="${i.is_hidden ? 'Unhide' : 'Hide'}">
+                            <i class="mdi ${i.is_hidden ? 'mdi-eye-outline' : 'mdi-eye-off-outline'}"></i>
+                        </button>
+                        ${i.is_installed ? `
+                        <button class="action-btn" onclick="confirmRemove('${i.owner}','${i.repo_name}','${i.type}',event)" title="Delete">
+                            <i class="mdi mdi-trash-can-outline"></i>
+                        </button>` : ''}
+                    </div>
+                </div>
+                <div class="card-desc">${i.description || 'Component from OnOff Store.'}</div>
+                <div class="card-foot">
+                    <div style="color:var(--dim); font-size:0.75rem;">${i.owner}</div>
+                    <button class="btn btn-p" onclick="openDet('${i.owner}','${i.repo_name}',event)">View <i class="mdi mdi-chevron-right"></i></button>
+                </div>
+            `;
+                card.onclick = (e) => {
+                    if (e.ctrlKey || e.metaKey || selectedIds.size > 0) {
+                        toggleSelect(id);
+                    } else {
+                        openDet(i.owner, i.repo_name);
+                    }
+                };
+                grid.appendChild(card);
+            });
+        }
+
+        function toggleSelect(id) {
+            if (selectedIds.has(id)) selectedIds.delete(id);
+            else selectedIds.add(id);
+            updateBulkBar();
+            apply();
+        }
+
+        function updateBulkBar() {
+            const bar = document.getElementById('bulkBar');
+            const text = document.getElementById('bulkText');
+            if (selectedIds.size > 0) {
+                bar.style.display = 'flex';
+                text.innerText = `${selectedIds.size} selected`;
+            } else {
+                bar.style.display = 'none';
+            }
+        }
+
+        function clearSelection() {
+            selectedIds.clear();
+            updateBulkBar();
+            apply();
+        }
+
+        async function bulkAction(act) {
+            if (act === 'install') {
+                if (!confirm(`Install ${selectedIds.size} components?`)) return;
+                const ids = Array.from(selectedIds);
+                clearSelection();
+                pop('Installing', `Installing ${ids.length} packages...`, 'mdi-download-network', false);
+                for (const id of ids) {
+                    const [o, r] = id.split('/');
+                    const item = items.find(x => x.owner === o && x.repo_name === r);
+                    await executeInstDirect(o, r, item.type, item.mode, item.asset_name);
+                }
+                pop('Complete', 'Installation complete. Check logs for details.', 'mdi-check-circle', false);
+                load();
+            }
+        }
+
+        async function executeRemoveDirect(o, r, t) {
+            try {
+                await fetch('/api/onoff_store/uninstall', {
+                    method: 'POST',
+                    body: JSON.stringify({ owner: o, repo: r, type: t }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (e) { }
+        }
+
+        async function toggleHide(o, r, currentlyHidden, e) {
+            if (e) e.stopPropagation();
+            const endpoint = currentlyHidden ? '/api/onoff_store/unhide' : '/api/onoff_store/hide';
+            try {
+                await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ owner: o, repo: r })
+                });
+                load();
+            } catch (e) { alert('Action failed'); }
+        }
+
+        function toggleShowHidden() {
+            showHidden = !showHidden;
+            const btn = document.getElementById('toggleHiddenBtn');
+            btn.innerHTML = showHidden ? '<i class="mdi mdi-eye-outline"></i> Hide Hidden' : '<i class="mdi mdi-eye-off-outline"></i> Show Hidden';
+            document.getElementById('dropdown').style.display = 'none';
+            apply();
+        }
+
+        async function executeInstDirect(o, r, t, mode, asset_name) {
+            try {
+                const body = { owner: o, repo: r, type: t };
+                if (mode) body.mode = mode;
+                if (asset_name) body.asset_name = asset_name;
+                await fetch('/api/onoff_store/install', {
+                    method: 'POST',
+                    body: JSON.stringify(body),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (e) { }
+        }
+
+        async function openDet(o, r, e) {
+            if (e) e.stopPropagation();
+            const item = items.find(x => x.owner === o && x.repo_name === r);
+            document.getElementById('mt').innerText = formatName(item.repo_name);
+            document.getElementById('ms').innerText = `by ${item.owner}`;
+            const body = document.getElementById('mb');
+            body.innerHTML = '<center style="padding:3rem;"><i class="mdi mdi-loading mdi-spin" style="font-size:2.5rem;"></i><br><br>Loading...</center>';
+            document.getElementById('modal').style.display = 'flex';
+
+            const foot = document.getElementById('mf');
+            const btnTxt = item.update_available ? 'Update' : (item.is_installed ? 'Reinstall' : 'Install');
+            foot.innerHTML = `<button class="btn btn-o" onclick="closeModal()">Close</button><button class="btn btn-p" onclick="confirmInst('${o}','${r}','${item.type}')">${btnTxt}</button>`;
+
+            try {
+                const resp = await fetch(`/api/onoff_store/readme/${o}/${r}`);
+                let md = '';
+                if (item.update_available && item.release_notes) md += `### What's New\n${item.release_notes}\n\n---\n\n`;
+                md += resp.ok ? await resp.text() : 'Documentation not available.';
+                body.innerHTML = marked.parse(md);
+            } catch { body.innerHTML = 'Error loading documentation.'; }
+        }
+
+        function toggleMenu() {
+            const d = document.getElementById('dropdown');
+            d.style.display = d.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function openCustomModal() {
+            document.getElementById('dropdown').style.display = 'none';
+            document.getElementById('customModal').style.display = 'flex';
+        }
+
+        function closeCustomModal() { document.getElementById('customModal').style.display = 'none'; }
+
+        async function addCustomRepo() {
+            const owner = document.getElementById('customOwner').value.trim();
+            const repo = document.getElementById('customRepo').value.trim();
+            if (!owner || !repo) { pop('Error', 'Please fill in both fields.', 'mdi-alert', false); return; }
+
+            try {
+                await fetch('/api/onoff_store/custom/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ owner, repo })
+                });
+                closeCustomModal();
+                document.getElementById('customOwner').value = '';
+                document.getElementById('customRepo').value = '';
+                load();
+                pop('Added', `${repo} added to store.`, 'mdi-check-circle', false);
+            } catch (e) { pop('Error', 'Failed to add repository.', 'mdi-alert', false); }
+        }
+
+        function confirmInst(o, r, t) {
+            pop('Confirm Install', `Install ${formatName(r)}?`, 'mdi-download', false, [
+                { t: 'Cancel', c: 'btn-o', f: 'closePop()' },
+                { t: 'Install', c: 'btn-p', f: `executeInst('${o}','${r}','${t}')` }
+            ]);
+        }
+
+        function confirmRemove(o, r, t, e) {
+            if (e) e.stopPropagation();
+            const msg = t === 'integration'
+                ? `Delete ${formatName(r)}? Remove from HA Integrations first.`
+                : `Delete ${formatName(r)}?`;
+
+            pop('Confirm Delete', msg, 'mdi-trash-can', false, [
+                { t: 'Cancel', c: 'btn-o', f: 'closePop()' },
+                { t: 'Delete', c: 'btn-p', f: `executeRemove('${o}','${r}','${t}')` }
+            ]);
+        }
+
+        async function executeRemove(o, r, t) {
+            closePop();
+            try {
+                const res = await fetch('/api/onoff_store/uninstall', {
+                    method: 'POST',
+                    body: JSON.stringify({ owner: o, repo: r, type: t }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (t === 'lovelace') {
+                        pop('Removed', 'Card deleted. Reloading...', 'mdi-check-circle', false);
+                        setTimeout(() => window.top.location.reload(), 1500);
+                    } else {
+                        pop('Deleted', 'Files removed. Restart Home Assistant.', 'mdi-restart', false);
+                        load();
+                    }
+                } else pop('Error', data.error, 'mdi-alert', false);
+            } catch { pop('Error', 'Removal failed', 'mdi-alert', false); }
+        }
+
+        async function executeInst(o, r, t) {
+            closePop();
+            const item = items.find(x => x.owner === o && x.repo_name === r);
+
+            try {
+                const body = { owner: o, repo: r, type: t };
+                if (item.mode) body.mode = item.mode;
+                if (item.asset_name) body.asset_name = item.asset_name;
+
+                const res = await fetch('/api/onoff_store/install', {
+                    method: 'POST',
+                    body: JSON.stringify(body),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeModal();
+                    if (t === 'lovelace') {
+                        pop('Installed', 'Card installed. Reload Home Assistant.', 'mdi-refresh', true);
+                    } else {
+                        pop('Restart Required', 'Integration installed. Restart Home Assistant.', 'mdi-restart', false);
+                    }
+                    load();
+                } else pop('Error', data.error, 'mdi-alert', false);
+            } catch { pop('Error', 'Install failed', 'mdi-alert', false); }
+        }
+
+        function pop(t, m, i, isReload, customActions) {
+            document.getElementById('pt').innerText = t;
+            document.getElementById('pm').innerHTML = m;
+            document.getElementById('pi').innerHTML = `<i class="mdi ${i}"></i>`;
+            const a = document.getElementById('pa');
+            a.innerHTML = '';
+
+            if (customActions) {
+                customActions.forEach(ca => {
+                    const b = document.createElement('button');
+                    b.className = `btn ${ca.c}`;
+                    b.innerText = ca.t;
+                    b.onclick = new Function(ca.f);
+                    a.appendChild(b);
+                });
+            } else if (isReload) {
+                a.innerHTML = `<button class="btn btn-o" onclick="closePop()">Later</button><button class="btn btn-p" onclick="window.top.location.reload()">Reload</button>`;
+            } else {
+                a.innerHTML = `<button class="btn btn-p" onclick="closePop()">OK</button>`;
+            }
+            document.getElementById('pop-o').style.display = 'flex';
+        }
+
+        function closePop() { document.getElementById('pop-o').style.display = 'none'; }
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+        window.onclick = (e) => {
+            if (e.target == document.getElementById('modal')) closeModal();
+            if (e.target == document.getElementById('customModal')) closeCustomModal();
+            if (!e.target.closest('.menu-container') && !e.target.closest('.dropdown')) {
+                document.getElementById('dropdown').style.display = 'none';
+            }
+        };
+
+        // Prevent body scroll when modal is open on mobile
+        document.addEventListener('touchmove', function (e) {
+            if (document.getElementById('modal').style.display === 'flex' ||
+                document.getElementById('customModal').style.display === 'flex' ||
+                document.getElementById('pop-o').style.display === 'flex') {
+                if (!e.target.closest('.modal-b')) {
+                    e.preventDefault();
+                }
+            }
+        }, { passive: false });
+
+        load();
+    </script>
+</body>
+
+</html>
